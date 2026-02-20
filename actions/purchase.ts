@@ -119,7 +119,7 @@ export async function createPurchase(data: PurchaseInput) {
                         previousStock,
                         newStock,
                         reason: `Purchase Restock [${createdPurchase.purchaseNumber}]`,
-                        reference: createdPurchase._id,
+                        reference: createdPurchase._id.toString(),
                     }], { session });
                 }
             }
@@ -246,7 +246,7 @@ export async function updatePurchase(id: string, data: PurchaseInput) {
                             previousStock,
                             newStock: Math.max(0, newStock),
                             reason: `Purchase Edit Reversal [${existingPurchase.purchaseNumber}]`,
-                            reference: existingPurchase._id,
+                            reference: existingPurchase._id.toString(),
                         }], { session });
                     }
                 }
@@ -291,7 +291,7 @@ export async function updatePurchase(id: string, data: PurchaseInput) {
                         previousStock,
                         newStock,
                         reason: `Purchase Edit Restock [${existingPurchase.purchaseNumber}]`,
-                        reference: existingPurchase._id,
+                        reference: existingPurchase._id.toString(),
                     }], { session });
                 }
             }

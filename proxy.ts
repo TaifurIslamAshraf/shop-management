@@ -4,7 +4,21 @@ const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
     if (isProtectedRoute(req)) {
-        await auth.protect();
+        const session = await auth();
+
+        // Ensure user is authenticated
+        if (!session.userId) {
+            return session.redirectToSignIn();
+        }
+
+        // Check if user has the admin role using sessionClaims
+        // Assumes role is stored in public metadata: { metadata: { role: 'admin' } }
+        const role = (session.sessionClaims?.metadata as any)?.role;
+
+        if (role !== "admin") {
+            // Redirect non-admins away from dashboard
+            return Response.redirect(new URL("/", req.url));
+        }
     }
 });
 

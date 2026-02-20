@@ -47,7 +47,7 @@ export function SupplierForm({ initialData, onSuccess }: SupplierFormProps) {
     const [isPending, startTransition] = useTransition();
 
     const form = useForm<SupplierFormValues>({
-        resolver: zodResolver(formSchema),
+        resolver: zodResolver(formSchema) as any,
         defaultValues: {
             name: initialData?.name || "",
             companyName: initialData?.companyName || "",
