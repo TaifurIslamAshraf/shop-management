@@ -1,4 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
 
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 
@@ -11,13 +11,15 @@ export default clerkMiddleware(async (auth, req) => {
             return session.redirectToSignIn();
         }
 
-        // Check if user has the admin role using sessionClaims
-        // Assumes role is stored in public metadata: { metadata: { role: 'admin' } }
-        const role = (session.sessionClaims?.metadata as any)?.role;
+        // Fetch user from clerk API to access publicMetadata reliably
+        const client = await clerkClient();
+        const user = await client.users.getUser(session.userId);
+        const role = user.publicMetadata?.role;
 
         if (role !== "admin") {
             // Redirect non-admins away from dashboard
-            return Response.redirect(new URL("/", req.url));
+            // We cannot redirect to '/' because '/' automatically redirects authenticated users to '/dashboard'
+            return Response.redirect(new URL("/unauthorized", req.url));
         }
     }
 });
