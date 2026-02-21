@@ -13,6 +13,7 @@ export interface IOrderItem {
 export interface IOrder extends Document {
     userId: string;
     orderNumber: string;
+    customerId?: mongoose.Types.ObjectId;
     customerName?: string;
     customerPhone?: string;
     items: IOrderItem[];
@@ -20,8 +21,10 @@ export interface IOrder extends Document {
     discountAmount: number;
     taxAmount: number;
     totalAmount: number;
+    paidAmount: number;
+    dueAmount: number;
     paymentMethod: "Cash" | "Card" | "Mobile Banking" | "Other";
-    paymentStatus: "Paid" | "Pending" | "Failed";
+    paymentStatus: "Paid" | "Partial" | "Unpaid";
     createdAt: Date;
     updatedAt: Date;
 }
@@ -74,6 +77,11 @@ const OrderSchema = new Schema<IOrder>(
             unique: true,
             index: true,
         },
+        customerId: {
+            type: Schema.Types.ObjectId,
+            ref: "Customer",
+            index: true,
+        },
         customerName: {
             type: String,
         },
@@ -101,6 +109,16 @@ const OrderSchema = new Schema<IOrder>(
             required: true,
             min: 0,
         },
+        paidAmount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        dueAmount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
         paymentMethod: {
             type: String,
             enum: ["Cash", "Card", "Mobile Banking", "Other"],
@@ -109,7 +127,7 @@ const OrderSchema = new Schema<IOrder>(
         },
         paymentStatus: {
             type: String,
-            enum: ["Paid", "Pending", "Failed"],
+            enum: ["Paid", "Partial", "Unpaid"],
             default: "Paid",
             required: true,
         },
@@ -118,6 +136,9 @@ const OrderSchema = new Schema<IOrder>(
         timestamps: true,
     }
 );
+
+OrderSchema.index({ customerId: 1, paymentStatus: 1 });
+OrderSchema.index({ createdAt: -1 });
 
 // Prevent re-compiling the model if it already exists in the dev environment
 const Order: Model<IOrder> =

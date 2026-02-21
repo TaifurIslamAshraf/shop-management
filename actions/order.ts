@@ -8,6 +8,7 @@ import connectDB from "@/lib/db";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import StockMovement from "@/models/StockMovement";
+import Customer from "@/models/Customer";
 
 const orderItemSchema = z.object({
     productId: z.string().min(1, "Product ID is required"),
@@ -19,11 +20,13 @@ const orderItemSchema = z.object({
 });
 
 const orderSchema = z.object({
+    customerId: z.string().optional(),
     customerName: z.string().optional(),
     customerPhone: z.string().optional(),
     items: z.array(orderItemSchema).min(1, "At least one item is required"),
     discountAmount: z.coerce.number().min(0).default(0),
     taxAmount: z.coerce.number().min(0).default(0),
+    paidAmount: z.coerce.number().min(0).optional(),
     paymentMethod: z.enum(["Cash", "Card", "Mobile Banking", "Other"]).default("Cash"),
 });
 
@@ -51,6 +54,20 @@ export async function createOrder(data: OrderInput) {
 
         const calculatedTotalAmount = Math.max(0, calculatedSubTotal - validatedData.discountAmount + validatedData.taxAmount);
 
+        // Determine paid/due amounts
+        const paidAmount = validatedData.paidAmount !== undefined
+            ? Math.min(validatedData.paidAmount, calculatedTotalAmount)
+            : calculatedTotalAmount; // default: fully paid
+        const dueAmount = Math.max(0, calculatedTotalAmount - paidAmount);
+
+        // Determine payment status
+        let paymentStatus: "Paid" | "Partial" | "Unpaid" = "Paid";
+        if (dueAmount > 0 && paidAmount > 0) {
+            paymentStatus = "Partial";
+        } else if (dueAmount > 0 && paidAmount === 0) {
+            paymentStatus = "Unpaid";
+        }
+
         // Generate Order Number
         const currentYear = new Date().getFullYear().toString().slice(-2);
         const orderCount = await Order.countDocuments({ userId });
@@ -58,7 +75,6 @@ export async function createOrder(data: OrderInput) {
         const sequenceNumber = (orderCount + 1).toString().padStart(6, '0');
         const orderNumber = `${prefix}-${currentYear}-${sequenceNumber}`;
 
-        // Create Order and deduct stock in a somewhat transactional way (Mongoose session is better for replica sets, avoiding here for simpler setup unless needed)
         // Check stock availability first to avoid partial commits
         for (const item of processedItems) {
             const product = await Product.findOne({ _id: item.productId, userId });
@@ -73,6 +89,7 @@ export async function createOrder(data: OrderInput) {
         const newOrder = new Order({
             userId,
             orderNumber,
+            customerId: validatedData.customerId || undefined,
             customerName: validatedData.customerName,
             customerPhone: validatedData.customerPhone,
             items: processedItems,
@@ -80,11 +97,30 @@ export async function createOrder(data: OrderInput) {
             discountAmount: validatedData.discountAmount,
             taxAmount: validatedData.taxAmount,
             totalAmount: calculatedTotalAmount,
+            paidAmount,
+            dueAmount,
             paymentMethod: validatedData.paymentMethod,
-            paymentStatus: "Paid",
+            paymentStatus,
         });
 
         const savedOrder = await newOrder.save();
+
+        // Update customer totals if this is a customer order
+        if (validatedData.customerId) {
+            const customerUpdate: any = {
+                $inc: {
+                    invoiceCount: 1,
+                    totalPaid: paidAmount,
+                },
+            };
+
+            if (dueAmount > 0) {
+                customerUpdate.$inc.totalDue = dueAmount;
+                customerUpdate.$inc.unpaidInvoiceCount = 1;
+            }
+
+            await Customer.findByIdAndUpdate(validatedData.customerId, customerUpdate);
+        }
 
         // Deduct Stock and log movement
         for (const item of processedItems) {
@@ -110,6 +146,7 @@ export async function createOrder(data: OrderInput) {
         revalidatePath("/dashboard/pos");
         revalidatePath("/dashboard/orders");
         revalidatePath("/dashboard/products");
+        revalidatePath("/dashboard/customers");
 
         return { success: true, order: JSON.parse(JSON.stringify(savedOrder)) };
     } catch (error: any) {

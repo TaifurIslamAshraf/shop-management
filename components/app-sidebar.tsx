@@ -8,6 +8,7 @@ import {
   ReceiptText,
   Truck,
   Users,
+  UserRound,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -51,6 +52,11 @@ const data = {
       title: "Orders / Sales",
       url: "/dashboard/orders",
       icon: ReceiptText,
+    },
+    {
+      title: "Customers",
+      url: "/dashboard/customers",
+      icon: UserRound,
     },
     {
       title: "Suppliers",

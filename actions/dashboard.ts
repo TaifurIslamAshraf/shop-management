@@ -5,6 +5,8 @@ import connectDB from "@/lib/db";
 import Product from "@/models/Product";
 import Order from "@/models/Order";
 import Purchase from "@/models/Purchase";
+import Customer from "@/models/Customer";
+import Expense from "@/models/Expense";
 
 export async function getSmartAlerts() {
     try {
@@ -128,5 +130,127 @@ export async function getDailySalesSummary() {
         };
     } catch (error: any) {
         return { success: false, error: error.message || "Failed to fetch daily sales summary" };
+    }
+}
+
+export async function getDueMetrics() {
+    try {
+        const { userId } = await auth();
+        if (!userId) throw new Error("Unauthorized");
+
+        await connectDB();
+
+        const [dueStats, oldestUnpaid, multiDueCustomers, totalOverdueInvoices] = await Promise.all([
+            Customer.aggregate([
+                { $match: { userId, totalDue: { $gt: 0 } } },
+                {
+                    $group: {
+                        _id: null,
+                        totalOutstanding: { $sum: "$totalDue" },
+                        customersWithDue: { $sum: 1 },
+                    },
+                },
+            ]),
+            Order.findOne({
+                userId,
+                paymentStatus: { $in: ["Unpaid", "Partial"] },
+            })
+                .sort({ createdAt: 1 })
+                .select("createdAt orderNumber")
+                .lean(),
+            Customer.countDocuments({
+                userId,
+                unpaidInvoiceCount: { $gt: 1 },
+            }),
+            Order.countDocuments({
+                userId,
+                paymentStatus: { $in: ["Unpaid", "Partial"] },
+            }),
+        ]);
+
+        return {
+            success: true,
+            metrics: {
+                totalOutstanding: dueStats[0]?.totalOutstanding || 0,
+                customersWithDue: dueStats[0]?.customersWithDue || 0,
+                multiDueCustomers,
+                oldestUnpaidDate: oldestUnpaid?.createdAt || null,
+                totalOverdueInvoices,
+            },
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to fetch due metrics" };
+    }
+}
+
+export async function getWeeklyAnalytics() {
+    try {
+        const { userId } = await auth();
+        if (!userId) throw new Error("Unauthorized");
+
+        await connectDB();
+
+        // Build last 90 days date range
+        const days: { date: string; start: Date; end: Date }[] = [];
+        for (let i = 89; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const start = new Date(d);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(d);
+            end.setHours(23, 59, 59, 999);
+            // ISO date string YYYY-MM-DD for chart parsing
+            const date = start.toISOString().split("T")[0];
+            days.push({ date, start, end });
+        }
+
+        const ninetyDaysAgo = days[0].start;
+
+        // Fetch all orders and expenses in the 90-day window
+        const [orders, expenses] = await Promise.all([
+            Order.find({
+                userId,
+                createdAt: { $gte: ninetyDaysAgo },
+            })
+                .select("totalAmount items createdAt")
+                .lean(),
+            Expense.find({
+                userId,
+                expenseDate: { $gte: ninetyDaysAgo },
+            })
+                .select("amount expenseDate")
+                .lean(),
+        ]);
+
+        // Bucket into days
+        const data = days.map(({ date, start, end }) => {
+            const dayOrders = orders.filter(
+                (o) => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end
+            );
+            const dayExpenses = expenses.filter(
+                (e) => new Date(e.expenseDate) >= start && new Date(e.expenseDate) <= end
+            );
+
+            const revenue = dayOrders.reduce((s, o) => s + o.totalAmount, 0);
+            let cogs = 0;
+            dayOrders.forEach((o) => {
+                (o.items || []).forEach((item: any) => {
+                    cogs += (item.purchasePrice || 0) * item.quantity;
+                });
+            });
+            const totalExpenses = dayExpenses.reduce((s, e) => s + e.amount, 0);
+            const netProfit = revenue - cogs - totalExpenses;
+
+            return {
+                date,
+                revenue: Math.round(revenue * 100) / 100,
+                expenses: Math.round(totalExpenses * 100) / 100,
+                netProfit: Math.round(netProfit * 100) / 100,
+            };
+        });
+
+        return { success: true, data };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to fetch weekly analytics" };
     }
 }

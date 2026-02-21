@@ -7,6 +7,19 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 
+function getStatusBadge(status: string) {
+    switch (status) {
+        case "Paid":
+            return <Badge variant="secondary">Paid</Badge>;
+        case "Partial":
+            return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Partial</Badge>;
+        case "Unpaid":
+            return <Badge variant="destructive">Unpaid</Badge>;
+        default:
+            return <Badge variant="outline">{status}</Badge>;
+    }
+}
+
 export default async function OrdersPage() {
     const { orders, success, error } = await getOrders();
 
@@ -23,7 +36,7 @@ export default async function OrdersPage() {
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Sales & Orders</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Sales &amp; Orders</h2>
                     <p className="text-muted-foreground">
                         View and manage all sales transactions.
                     </p>
@@ -47,7 +60,10 @@ export default async function OrdersPage() {
                                     <TableHead>Date</TableHead>
                                     <TableHead>Customer</TableHead>
                                     <TableHead>Payment</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead className="text-right">Paid</TableHead>
+                                    <TableHead className="text-right">Due</TableHead>
+                                    <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -60,12 +76,27 @@ export default async function OrdersPage() {
                                             {order.customerName || <span className="text-muted-foreground italic">Walk-in</span>}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant={order.paymentStatus === 'Paid' ? 'secondary' : 'destructive'}>
+                                            <Badge variant="outline">
                                                 {order.paymentMethod}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right font-bold">
                                             ${order.totalAmount.toFixed(2)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            ${(order.paidAmount || 0).toFixed(2)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {(order.dueAmount || 0) > 0 ? (
+                                                <span className="font-semibold text-red-600">
+                                                    ${order.dueAmount.toFixed(2)}
+                                                </span>
+                                            ) : (
+                                                <span className="text-muted-foreground">$0.00</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {getStatusBadge(order.paymentStatus)}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Link href={`/dashboard/pos/receipt/${order._id}`}>

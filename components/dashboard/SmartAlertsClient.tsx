@@ -34,7 +34,7 @@ export function SmartAlertsClient() {
 
     if (loading) {
         return (
-            <Card className="col-span-4 lg:col-span-3">
+            <Card>
                 <CardHeader>
                     <CardTitle>Smart Alerts</CardTitle>
                 </CardHeader>
@@ -57,7 +57,7 @@ export function SmartAlertsClient() {
         alerts.dueOrders.length;
 
     return (
-        <Card className="col-span-4 lg:col-span-3 flex flex-col">
+        <Card className="flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle className="flex items-center gap-2">
