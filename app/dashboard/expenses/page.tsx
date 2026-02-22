@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { columns } from "./columns";
 
+export const dynamic = "force-dynamic";
+
 export default async function ExpensesPage() {
     const { data: expenses, success, error } = await getExpenses();
 
