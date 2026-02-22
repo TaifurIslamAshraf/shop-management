@@ -4,13 +4,32 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "./data-table";
-import { columns, Purchase } from "./columns";
+import { getColumns, Purchase } from "./columns";
+import { deletePurchase } from "@/actions/purchase";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface PurchasesClientProps {
     initialPurchases: Purchase[];
 }
 
 export default function PurchasesClient({ initialPurchases }: PurchasesClientProps) {
+    const router = useRouter();
+
+    const handleDelete = async (id: string) => {
+        if (confirm("Are you sure you want to delete this purchase? Stock changes will be reversed.")) {
+            const res = await deletePurchase(id);
+            if (res.success) {
+                toast.success("Purchase deleted successfully");
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to delete purchase");
+            }
+        }
+    };
+
+    const columns = getColumns({ onDelete: handleDelete });
+
     return (
         <>
             <div className="flex items-center justify-between">
@@ -31,3 +50,4 @@ export default function PurchasesClient({ initialPurchases }: PurchasesClientPro
         </>
     );
 }
+

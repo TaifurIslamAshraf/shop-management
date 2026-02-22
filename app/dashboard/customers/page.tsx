@@ -1,18 +1,7 @@
 import { getCustomers } from "@/actions/customer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { Eye } from "lucide-react";
 import CustomerForm from "@/components/customers/CustomerForm";
+import CustomersClient from "./CustomersClient";
 
 export default async function CustomersPage() {
     const { customers, success, error } = await getCustomers();
@@ -43,72 +32,7 @@ export default async function CustomersPage() {
                     <CardTitle>All Customers</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {!customers || customers.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                            No customers found. Click "Add Customer" to create one.
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Phone</TableHead>
-                                    <TableHead className="text-right">Total Due</TableHead>
-                                    <TableHead className="text-center">Unpaid Invoices</TableHead>
-                                    <TableHead className="text-center">Total Invoices</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {customers.map((customer: any) => (
-                                    <TableRow key={customer._id}>
-                                        <TableCell className="font-medium">{customer.name}</TableCell>
-                                        <TableCell>{customer.phone || "—"}</TableCell>
-                                        <TableCell className="text-right">
-                                            {customer.totalDue > 0 ? (
-                                                <span className="font-bold text-red-600">
-                                                    ${customer.totalDue.toFixed(2)}
-                                                </span>
-                                            ) : (
-                                                <span className="text-muted-foreground">$0.00</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            {customer.unpaidInvoiceCount > 0 ? (
-                                                <Badge variant="destructive">
-                                                    {customer.unpaidInvoiceCount}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground">0</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            {customer.invoiceCount}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant={
-                                                    customer.status === "Active"
-                                                        ? "secondary"
-                                                        : "outline"
-                                                }
-                                            >
-                                                {customer.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Link href={`/dashboard/customers/${customer._id}`}>
-                                                <Button variant="ghost" size="icon">
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                            </Link>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
+                    <CustomersClient customers={customers || []} />
                 </CardContent>
             </Card>
         </div>

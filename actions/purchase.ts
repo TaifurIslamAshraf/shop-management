@@ -328,3 +328,64 @@ export async function updatePurchase(id: string, data: PurchaseInput) {
         return { success: false, error: error.message || "Failed to update purchase" };
     }
 }
+
+export async function deletePurchase(id: string) {
+    try {
+        const { userId } = await auth();
+        if (!userId) throw new Error("Unauthorized");
+
+        await connectDB();
+
+        const purchase = await Purchase.findOne({ _id: id, userId });
+        if (!purchase) {
+            throw new Error("Purchase not found");
+        }
+
+        // If purchase was completed, reverse stock and supplier due
+        if (purchase.status === "Completed") {
+            // Reverse supplier due amount
+            if (purchase.dueAmount > 0) {
+                await Supplier.findByIdAndUpdate(
+                    purchase.supplierId,
+                    { $inc: { dueAmount: -purchase.dueAmount } }
+                );
+            }
+
+            // Reverse stock for each item
+            for (const item of purchase.items) {
+                const product = await Product.findById(item.productId);
+                if (product) {
+                    const previousStock = product.stockQuantity;
+                    const newStock = Math.max(0, previousStock - item.quantity);
+
+                    await Product.findByIdAndUpdate(item.productId, {
+                        $set: { stockQuantity: newStock },
+                    });
+
+                    await StockMovement.create({
+                        productId: item.productId,
+                        userId,
+                        type: "OUT",
+                        quantity: item.quantity,
+                        previousStock,
+                        newStock,
+                        reason: `Purchase Deleted [${purchase.purchaseNumber}]`,
+                        reference: purchase._id.toString(),
+                    });
+                }
+            }
+        }
+
+        await Purchase.findByIdAndDelete(id);
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/purchases");
+        revalidatePath("/dashboard/suppliers");
+        revalidatePath("/dashboard/products");
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Delete Purchase Error:", error);
+        return { success: false, error: error.message || "Failed to delete purchase" };
+    }
+}

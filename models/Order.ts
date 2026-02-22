@@ -1,13 +1,15 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface IOrderItem {
-    productId: mongoose.Types.ObjectId;
+    productId?: mongoose.Types.ObjectId;
     name: string;
-    sku: string;
+    sku?: string;
     price: number;
     purchasePrice?: number; // Optional: To track profit per item later
     quantity: number;
     subTotal: number;
+    isCustom?: boolean;
+    description?: string;
 }
 
 export interface IOrder extends Document {
@@ -33,7 +35,6 @@ const OrderItemSchema = new Schema<IOrderItem>({
     productId: {
         type: Schema.Types.ObjectId,
         ref: "Product",
-        required: true,
     },
     name: {
         type: String,
@@ -41,7 +42,6 @@ const OrderItemSchema = new Schema<IOrderItem>({
     },
     sku: {
         type: String,
-        required: true,
     },
     price: {
         type: Number,
@@ -61,6 +61,13 @@ const OrderItemSchema = new Schema<IOrderItem>({
         type: Number,
         required: true,
         min: 0,
+    },
+    isCustom: {
+        type: Boolean,
+        default: false,
+    },
+    description: {
+        type: String,
     },
 });
 

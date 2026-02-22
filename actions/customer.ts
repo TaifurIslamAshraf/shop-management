@@ -244,3 +244,31 @@ export async function getCustomerDueSummary() {
         return { success: false, error: error.message || "Failed to fetch due summary" };
     }
 }
+
+export async function deleteCustomer(id: string) {
+    try {
+        const { userId } = await auth();
+        if (!userId) throw new Error("Unauthorized");
+
+        await connectDB();
+
+        // Check for existing orders
+        const hasOrders = await Order.exists({ customerId: id, userId });
+        if (hasOrders) {
+            throw new Error("Cannot delete customer with existing orders. Remove their orders first.");
+        }
+
+        const customer = await Customer.findOneAndDelete({ _id: id, userId }).lean();
+
+        if (!customer) {
+            throw new Error("Customer not found");
+        }
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/customers");
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to delete customer" };
+    }
+}

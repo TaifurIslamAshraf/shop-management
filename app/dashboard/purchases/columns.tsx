@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Eye, Pencil } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,11 @@ export type Purchase = {
     createdAt: string;
 };
 
-export const columns: ColumnDef<Purchase>[] = [
+interface ColumnsProps {
+    onDelete: (id: string) => void;
+}
+
+export const getColumns = ({ onDelete }: ColumnsProps): ColumnDef<Purchase>[] => [
     {
         accessorKey: "purchaseNumber",
         header: "PO Number",
@@ -133,9 +138,17 @@ export const columns: ColumnDef<Purchase>[] = [
                                 <Pencil className="mr-2 h-4 w-4" /> Edit
                             </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            onClick={() => onDelete(purchase._id)}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                        >
+                            <Trash className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             );
         },
     },
 ];
+

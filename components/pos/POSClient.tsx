@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Minus, Trash2, Search, ShoppingCart, UserPlus, X } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ShoppingCart, UserPlus, X, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -29,6 +29,8 @@ interface CartItem {
     product: Product;
     quantity: number;
     subTotal: number;
+    isCustom?: boolean;
+    description?: string;
 }
 
 interface CustomerResult {
@@ -60,6 +62,13 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
     const [showCustomerSearch, setShowCustomerSearch] = useState(false);
     const [paymentType, setPaymentType] = useState<"full" | "due">("full");
 
+    // Custom item state
+    const [showCustomItemForm, setShowCustomItemForm] = useState(false);
+    const [customItemName, setCustomItemName] = useState("");
+    const [customItemDescription, setCustomItemDescription] = useState("");
+    const [customItemPrice, setCustomItemPrice] = useState<number>(0);
+    const [customItemPurchasePrice, setCustomItemPurchasePrice] = useState<number>(0);
+
     const [isProcessing, setIsProcessing] = useState(false);
 
     const filteredProducts = products.filter(
@@ -85,10 +94,10 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
         }
 
         setCart((current) => {
-            const existing = current.find((item) => item.product._id === product._id);
+            const existing = current.find((item) => item.product._id === product._id && !item.isCustom);
             if (existing) {
                 return current.map((item) =>
-                    item.product._id === product._id
+                    item.product._id === product._id && !item.isCustom
                         ? {
                             ...item,
                             quantity: item.quantity + 1,
@@ -104,6 +113,46 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
         });
     };
 
+    const addCustomItem = () => {
+        if (!customItemName.trim()) {
+            toast.error("Please enter a name for the custom item");
+            return;
+        }
+        if (customItemPrice <= 0) {
+            toast.error("Please enter a valid price");
+            return;
+        }
+
+        const tempId = `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const customProduct: Product = {
+            _id: tempId,
+            name: customItemName.trim(),
+            sku: "",
+            price: customItemPrice,
+            purchasePrice: customItemPurchasePrice || 0,
+            stockQuantity: 999, // unlimited for custom items
+        };
+
+        setCart((current) => [
+            ...current,
+            {
+                product: customProduct,
+                quantity: 1,
+                subTotal: customItemPrice,
+                isCustom: true,
+                description: customItemDescription.trim() || undefined,
+            },
+        ]);
+
+        // Reset form
+        setCustomItemName("");
+        setCustomItemDescription("");
+        setCustomItemPrice(0);
+        setCustomItemPurchasePrice(0);
+        setShowCustomItemForm(false);
+        toast.success("Custom item added to cart");
+    };
+
     const updateQuantity = (productId: string, delta: number) => {
         setCart((current) =>
             current.map((item) => {
@@ -111,7 +160,8 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                     const newQty = item.quantity + delta;
                     if (newQty < 1) return item;
 
-                    if (delta > 0 && !checkStockAvailability(productId, delta)) {
+                    // Skip stock check for custom items
+                    if (!item.isCustom && delta > 0 && !checkStockAvailability(productId, delta)) {
                         toast.error(`Not enough stock for ${item.product.name}`);
                         return item;
                     }
@@ -227,12 +277,14 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                 customerName: customerName.trim() || undefined,
                 customerPhone: customerPhone.trim() || undefined,
                 items: cart.map(c => ({
-                    productId: c.product._id,
+                    productId: c.isCustom ? undefined : c.product._id,
                     name: c.product.name,
-                    sku: c.product.sku,
+                    sku: c.isCustom ? undefined : c.product.sku,
                     price: c.product.price,
                     purchasePrice: c.product.purchasePrice || 0,
                     quantity: c.quantity,
+                    isCustom: c.isCustom || false,
+                    description: c.description || undefined,
                 })),
                 discountAmount: Number(discount),
                 taxAmount: Number(cartTotals.taxAmount.toFixed(2)),
@@ -276,7 +328,88 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
+                    <Button
+                        variant="outline"
+                        className="gap-2 shrink-0"
+                        onClick={() => setShowCustomItemForm(!showCustomItemForm)}
+                    >
+                        <Wrench className="h-4 w-4" />
+                        Custom Item
+                    </Button>
                 </div>
+
+                {/* Custom Item Form */}
+                {showCustomItemForm && (
+                    <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Wrench className="h-4 w-4 text-primary" />
+                                <h3 className="text-sm font-semibold">Add Custom Item</h3>
+                                <span className="text-xs text-muted-foreground">(Service / Repair)</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Item Name *</label>
+                                    <Input
+                                        placeholder="e.g. Screen Replacement"
+                                        className="h-8 text-sm"
+                                        value={customItemName}
+                                        onChange={(e) => setCustomItemName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Description</label>
+                                    <Input
+                                        placeholder="e.g. iPhone 14 Pro Max"
+                                        className="h-8 text-sm"
+                                        value={customItemDescription}
+                                        onChange={(e) => setCustomItemDescription(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Selling Price *</label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder="0.00"
+                                        className="h-8 text-sm"
+                                        value={customItemPrice || ""}
+                                        onChange={(e) => setCustomItemPrice(Number(e.target.value))}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Cost/Purchase Price</label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder="0.00 (for profit tracking)"
+                                        className="h-8 text-sm"
+                                        value={customItemPurchasePrice || ""}
+                                        onChange={(e) => setCustomItemPurchasePrice(Number(e.target.value))}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-3">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => setShowCustomItemForm(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={addCustomItem}
+                                >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add to Cart
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 <div className="flex-1 overflow-auto border rounded-md">
                     <Table>
@@ -340,9 +473,20 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                             {cart.map((item) => (
                                 <div key={item.product._id} className="flex flex-col gap-2 border-b pb-4">
                                     <div className="flex justify-between font-medium">
-                                        <span className="truncate pr-4">{item.product.name}</span>
+                                        <span className="truncate pr-4 flex items-center gap-1.5">
+                                            {item.isCustom && (
+                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                                                    <Wrench className="h-2.5 w-2.5 mr-0.5" />
+                                                    Custom
+                                                </Badge>
+                                            )}
+                                            {item.product.name}
+                                        </span>
                                         <span>${item.subTotal.toFixed(2)}</span>
                                     </div>
+                                    {item.description && (
+                                        <p className="text-xs text-muted-foreground italic">{item.description}</p>
+                                    )}
                                     <div className="flex justify-between items-center text-sm text-muted-foreground">
                                         <span>${item.product.price.toFixed(2)} / ea</span>
                                         <div className="flex items-center gap-2">

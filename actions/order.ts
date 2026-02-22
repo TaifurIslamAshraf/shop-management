@@ -12,12 +12,14 @@ import Customer from "@/models/Customer";
 import crypto from "crypto";
 
 const orderItemSchema = z.object({
-    productId: z.string().min(1, "Product ID is required"),
+    productId: z.string().optional(),
     name: z.string().min(1, "Product name is required"),
-    sku: z.string().min(1, "SKU is required"),
+    sku: z.string().optional(),
     price: z.coerce.number().min(0, "Price must be a positive number"),
     purchasePrice: z.coerce.number().min(0).optional(),
     quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+    isCustom: z.boolean().optional().default(false),
+    description: z.string().optional(),
 });
 
 const orderSchema = z.object({
@@ -75,8 +77,10 @@ export async function createOrder(data: OrderInput) {
         const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase();
         const orderNumber = `${prefix}-${currentYear}-${Date.now().toString(36).toUpperCase()}-${uniqueId}`;
 
-        // Check stock availability first to avoid partial commits
+        // Check stock availability only for non-custom items
         for (const item of processedItems) {
+            if (item.isCustom) continue; // Skip stock check for custom items
+
             const product = await Product.findOne({ _id: item.productId, userId });
             if (!product) {
                 throw new Error(`Product ${item.name} not found`);
@@ -122,8 +126,10 @@ export async function createOrder(data: OrderInput) {
             await Customer.findByIdAndUpdate(validatedData.customerId, customerUpdate);
         }
 
-        // Deduct Stock and log movement
+        // Deduct Stock and log movement only for non-custom items
         for (const item of processedItems) {
+            if (item.isCustom) continue; // Skip stock deduction for custom items
+
             const product = await Product.findOne({ _id: item.productId, userId });
             if (product) {
                 const previousStock = product.stockQuantity;
@@ -185,5 +191,70 @@ export async function getOrderById(id: string) {
         return { success: true, order: JSON.parse(JSON.stringify(order)) };
     } catch (error: any) {
         return { success: false, error: error.message || "Failed to fetch order" };
+    }
+}
+
+export async function deleteOrder(id: string) {
+    try {
+        const { userId } = await auth();
+        if (!userId) throw new Error("Unauthorized");
+
+        await connectDB();
+
+        const order = await Order.findOne({ _id: id, userId });
+        if (!order) {
+            throw new Error("Order not found");
+        }
+
+        // Restore stock for non-custom items
+        for (const item of order.items) {
+            if (item.isCustom) continue;
+
+            const product = await Product.findOne({ _id: item.productId, userId });
+            if (product) {
+                const previousStock = product.stockQuantity;
+                product.stockQuantity += item.quantity;
+                await product.save();
+
+                await StockMovement.create({
+                    productId: product._id,
+                    userId,
+                    type: "IN",
+                    quantity: item.quantity,
+                    previousStock,
+                    newStock: product.stockQuantity,
+                    reason: `Order Deleted (Invoice: ${order.orderNumber})`,
+                });
+            }
+        }
+
+        // Update customer totals if this was a customer order
+        if (order.customerId) {
+            const customerUpdate: any = {
+                $inc: {
+                    invoiceCount: -1,
+                    totalPaid: -(order.paidAmount || 0),
+                },
+            };
+
+            if (order.dueAmount > 0) {
+                customerUpdate.$inc.totalDue = -order.dueAmount;
+                customerUpdate.$inc.unpaidInvoiceCount = -1;
+            }
+
+            await Customer.findByIdAndUpdate(order.customerId, customerUpdate);
+        }
+
+        await Order.findByIdAndDelete(id);
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/pos");
+        revalidatePath("/dashboard/orders");
+        revalidatePath("/dashboard/products");
+        revalidatePath("/dashboard/customers");
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to delete order" };
     }
 }
