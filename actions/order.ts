@@ -9,6 +9,7 @@ import Order from "@/models/Order";
 import Product from "@/models/Product";
 import StockMovement from "@/models/StockMovement";
 import Customer from "@/models/Customer";
+import crypto from "crypto";
 
 const orderItemSchema = z.object({
     productId: z.string().min(1, "Product ID is required"),
@@ -68,12 +69,11 @@ export async function createOrder(data: OrderInput) {
             paymentStatus = "Unpaid";
         }
 
-        // Generate Order Number
+        // Generate Super Random and Unique Order Number
         const currentYear = new Date().getFullYear().toString().slice(-2);
-        const orderCount = await Order.countDocuments({ userId });
         const prefix = "INV";
-        const sequenceNumber = (orderCount + 1).toString().padStart(6, '0');
-        const orderNumber = `${prefix}-${currentYear}-${sequenceNumber}`;
+        const uniqueId = crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase();
+        const orderNumber = `${prefix}-${currentYear}-${Date.now().toString(36).toUpperCase()}-${uniqueId}`;
 
         // Check stock availability first to avoid partial commits
         for (const item of processedItems) {
