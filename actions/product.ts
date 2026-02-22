@@ -8,15 +8,17 @@ import Product from "@/models/Product";
 import StockMovement from "@/models/StockMovement";
 
 const productSchema = z.object({
+    type: z.enum(["Product", "Service"]).default("Product"),
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
     sku: z.string().min(1, "SKU is required"),
     price: z.coerce.number().min(0, "Price must be a positive number"),
     purchasePrice: z.coerce.number().min(0, "Purchase price must be a valid number").default(0),
-    stockQuantity: z.coerce.number().min(0, "Stock quantity cannot be negative"),
+    stockQuantity: z.coerce.number().min(0, "Stock quantity cannot be negative").default(0),
     lowStockThreshold: z.coerce.number().min(0, "Low stock threshold cannot be negative").default(5),
     category: z.string().optional(),
     imageUrl: z.string().optional(),
+    supplierId: z.string().optional().or(z.literal("none")),
     expiryDate: z.coerce.date().optional(),
 });
 
@@ -45,8 +47,8 @@ export async function createProduct(data: ProductInput) {
             userId,
         });
 
-        // Log initial stock if greater than 0
-        if (product.stockQuantity > 0) {
+        // Log initial stock if greater than 0 and type is Product
+        if (product.type === "Product" && product.stockQuantity > 0) {
             await StockMovement.create({
                 productId: product._id,
                 userId,
@@ -139,8 +141,8 @@ export async function updateProduct(id: string, data: ProductInput) {
             throw new Error("Product not found or unauthorized");
         }
 
-        // Log adjustment if stock was changed directly from the edit modal
-        if (product.stockQuantity !== previousStock) {
+        // Log adjustment if stock was changed directly from the edit modal and type is Product
+        if (product.type === "Product" && product.stockQuantity !== previousStock) {
             const quantityChanged = Math.abs(product.stockQuantity - previousStock);
             await StockMovement.create({
                 productId: product._id,

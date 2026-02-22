@@ -17,6 +17,7 @@ import { searchCustomers, createCustomer } from "@/actions/customer";
 
 interface Product {
     _id: string;
+    type: "Product" | "Service";
     name: string;
     sku: string;
     price: number;
@@ -29,6 +30,7 @@ interface CartItem {
     product: Product;
     quantity: number;
     subTotal: number;
+    description?: string;
 }
 
 interface CustomerResult {
@@ -68,18 +70,17 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
             p.sku.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const checkStockAvailability = (productId: string, requestedQty: number) => {
-        const product = products.find(p => p._id === productId);
-        if (!product) return false;
+    const checkStockAvailability = (productInfo: Product, requestedQty: number) => {
+        if (productInfo.type === "Service") return true;
 
-        const existingCartItem = cart.find(c => c.product._id === productId);
+        const existingCartItem = cart.find(c => c.product._id === productInfo._id);
         const currentCartQty = existingCartItem ? existingCartItem.quantity : 0;
 
-        return (currentCartQty + requestedQty) <= product.stockQuantity;
+        return (currentCartQty + requestedQty) <= productInfo.stockQuantity;
     };
 
     const addToCart = (product: Product) => {
-        if (!checkStockAvailability(product._id, 1)) {
+        if (!checkStockAvailability(product, 1)) {
             toast.error(`Not enough stock for ${product.name}`);
             return;
         }
@@ -111,7 +112,7 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                     const newQty = item.quantity + delta;
                     if (newQty < 1) return item;
 
-                    if (delta > 0 && !checkStockAvailability(productId, delta)) {
+                    if (delta > 0 && !checkStockAvailability(item.product, delta)) {
                         toast.error(`Not enough stock for ${item.product.name}`);
                         return item;
                     }
@@ -124,6 +125,14 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                 }
                 return item;
             })
+        );
+    };
+
+    const updateDescription = (productId: string, desc: string) => {
+        setCart((current) =>
+            current.map((item) =>
+                item.product._id === productId ? { ...item, description: desc } : item
+            )
         );
     };
 
@@ -230,6 +239,7 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                     productId: c.product._id,
                     name: c.product.name,
                     sku: c.product.sku,
+                    description: c.description,
                     price: c.product.price,
                     purchasePrice: c.product.purchasePrice || 0,
                     quantity: c.quantity,
@@ -293,8 +303,8 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                             {filteredProducts.map((product) => (
                                 <TableRow
                                     key={product._id}
-                                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${product.stockQuantity <= 0 ? 'opacity-50' : ''}`}
-                                    onClick={() => product.stockQuantity > 0 && addToCart(product)}
+                                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${product.type !== "Service" && product.stockQuantity <= 0 ? 'opacity-50' : ''}`}
+                                    onClick={() => (product.type === "Service" || product.stockQuantity > 0) && addToCart(product)}
                                 >
                                     <TableCell>
                                         <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center overflow-hidden shrink-0">
@@ -308,8 +318,8 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                                     <TableCell className="font-medium whitespace-nowrap">{product.name}</TableCell>
                                     <TableCell className="text-muted-foreground whitespace-nowrap">{product.sku}</TableCell>
                                     <TableCell className="text-right font-bold whitespace-nowrap">${product.price.toFixed(2)}</TableCell>
-                                    <TableCell className={`text-right whitespace-nowrap ${product.stockQuantity <= 0 ? 'text-red-500 font-bold' : ''}`}>
-                                        {product.stockQuantity}
+                                    <TableCell className={`text-right whitespace-nowrap ${product.type !== "Service" && product.stockQuantity <= 0 ? 'text-red-500 font-bold' : ''}`}>
+                                        {product.type === "Service" ? "∞" : product.stockQuantity}
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -358,6 +368,16 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                                             </Button>
                                         </div>
                                     </div>
+                                    {item.product.type === "Service" && (
+                                        <div className="mt-1">
+                                            <Input
+                                                placeholder="Service description (e.g. iPhone 13 Screen)"
+                                                value={item.description || ""}
+                                                onChange={(e) => updateDescription(item.product._id, e.target.value)}
+                                                className="h-8 text-xs bg-muted/50"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

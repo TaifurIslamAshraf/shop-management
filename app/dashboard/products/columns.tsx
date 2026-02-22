@@ -15,6 +15,7 @@ import Image from "next/image";
 
 export type Product = {
     _id: string;
+    type: "Product" | "Service";
     name: string;
     sku: string;
     price: number;
@@ -56,6 +57,19 @@ export const getColumns = ({ onEdit, onDelete, onStockAdjust, onStockHistory }: 
     {
         accessorKey: "name",
         header: "Name",
+        cell: ({ row }) => {
+            const product = row.original;
+            return (
+                <div className="flex items-center gap-2">
+                    <span className="font-medium">{product.name}</span>
+                    {product.type === "Service" && (
+                        <span className="bg-blue-100 text-blue-800 text-[10px] font-semibold px-2 py-0.5 rounded">
+                            Service
+                        </span>
+                    )}
+                </div>
+            );
+        },
     },
     {
         accessorKey: "sku",
@@ -118,6 +132,10 @@ export const getColumns = ({ onEdit, onDelete, onStockAdjust, onStockHistory }: 
         header: () => <div className="text-right">Stock</div>,
         cell: ({ row }) => {
             const product = row.original;
+            if (product.type === "Service") {
+                return <div className="text-right text-muted-foreground">—</div>;
+            }
+
             const stock = product.stockQuantity;
             const threshold = product.lowStockThreshold || 5;
 
@@ -146,17 +164,21 @@ export const getColumns = ({ onEdit, onDelete, onStockAdjust, onStockHistory }: 
                         <DropdownMenuItem onClick={() => navigator.clipboard.writeText(product.sku)}>
                             Copy SKU
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onStockAdjust(product)}>
-                            <Settings2 className="mr-2 h-4 w-4" /> Quick Adjust Stock
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                            if (typeof window !== "undefined") {
-                                window.location.href = `/dashboard/products/${product._id}/stock-history`;
-                            }
-                        }}>
-                            <History className="mr-2 h-4 w-4" /> View Stock History
-                        </DropdownMenuItem>
+                        {product.type !== "Service" && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => onStockAdjust(product)}>
+                                    <Settings2 className="mr-2 h-4 w-4" /> Quick Adjust Stock
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    if (typeof window !== "undefined") {
+                                        window.location.href = `/dashboard/products/${product._id}/stock-history`;
+                                    }
+                                }}>
+                                    <History className="mr-2 h-4 w-4" /> View Stock History
+                                </DropdownMenuItem>
+                            </>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => onEdit(product)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit

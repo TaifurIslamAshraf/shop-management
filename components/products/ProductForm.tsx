@@ -39,6 +39,7 @@ import {
 import { createProduct, updateProduct } from "@/actions/product";
 
 const formSchema = z.object({
+    type: z.enum(["Product", "Service"]).default("Product"),
     name: z.string().min(1, { message: "Name is required" }),
     description: z.string().optional(),
     sku: z.string().min(1, { message: "SKU is required" }),
@@ -68,6 +69,7 @@ export function ProductForm({ initialData, onSuccess, suppliers = [] }: ProductF
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema) as any,
         defaultValues: initialData || {
+            type: "Product",
             name: "",
             description: "",
             sku: "",
@@ -116,7 +118,28 @@ export function ProductForm({ initialData, onSuccess, suppliers = [] }: ProductF
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="type"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!initialData}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select type" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Product">Physical Product</SelectItem>
+                                        <SelectItem value="Service">Service (No Inventory)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                     <FormField
                         control={form.control}
                         name="name"
@@ -186,32 +209,36 @@ export function ProductForm({ initialData, onSuccess, suppliers = [] }: ProductF
                             </FormItem>
                         )}
                     />
-                    <FormField
-                        control={form.control}
-                        name="stockQuantity"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Stock Quantity</FormLabel>
-                                <FormControl>
-                                    <Input type="number" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="lowStockThreshold"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Low Stock Threshold</FormLabel>
-                                <FormControl>
-                                    <Input type="number" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {form.watch("type") !== "Service" && (
+                        <>
+                            <FormField
+                                control={form.control}
+                                name="stockQuantity"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Stock Quantity</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="lowStockThreshold"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Low Stock Threshold</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </>
+                    )}
                     <FormField
                         control={form.control}
                         name="category"
@@ -225,29 +252,31 @@ export function ProductForm({ initialData, onSuccess, suppliers = [] }: ProductF
                             </FormItem>
                         )}
                     />
-                    <FormField
-                        control={form.control}
-                        name="supplierId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Supplier</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select supplier" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {suppliers.map(sup => (
-                                            <SelectItem key={sup._id} value={sup._id}>{sup.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {form.watch("type") !== "Service" && (
+                        <FormField
+                            control={form.control}
+                            name="supplierId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Supplier</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select supplier" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="none">None</SelectItem>
+                                            {suppliers.map(sup => (
+                                                <SelectItem key={sup._id} value={sup._id}>{sup.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                     <FormField
                         control={form.control}
                         name="expiryDate"

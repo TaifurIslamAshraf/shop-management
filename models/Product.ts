@@ -2,6 +2,7 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface IProduct extends Document {
     userId: string;
+    type: "Product" | "Service";
     name: string;
     description?: string;
     sku: string;
@@ -23,6 +24,12 @@ const ProductSchema = new Schema<IProduct>(
             type: String,
             required: true,
             index: true,
+        },
+        type: {
+            type: String,
+            enum: ["Product", "Service"],
+            default: "Product",
+            required: true,
         },
         name: {
             type: String,

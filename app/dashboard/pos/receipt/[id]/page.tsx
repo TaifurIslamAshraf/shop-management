@@ -83,6 +83,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
                                     <td className="py-2 pr-2">
                                         <div className="font-medium">{item.name}</div>
                                         <div className="text-xs text-gray-400">{item.sku}</div>
+                                        {item.description && (
+                                            <div className="text-xs text-gray-500 mt-0.5 max-w-[200px] truncate" title={item.description}>
+                                                &quot;{item.description}&quot;
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="text-center py-2">{item.quantity}</td>
                                     <td className="text-right py-2">${item.price.toFixed(2)}</td>

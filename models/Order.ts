@@ -4,6 +4,7 @@ export interface IOrderItem {
     productId: mongoose.Types.ObjectId;
     name: string;
     sku: string;
+    description?: string;
     price: number;
     purchasePrice?: number; // Optional: To track profit per item later
     quantity: number;
@@ -42,6 +43,9 @@ const OrderItemSchema = new Schema<IOrderItem>({
     sku: {
         type: String,
         required: true,
+    },
+    description: {
+        type: String,
     },
     price: {
         type: Number,

@@ -15,6 +15,7 @@ const orderItemSchema = z.object({
     productId: z.string().min(1, "Product ID is required"),
     name: z.string().min(1, "Product name is required"),
     sku: z.string().min(1, "SKU is required"),
+    description: z.string().optional(),
     price: z.coerce.number().min(0, "Price must be a positive number"),
     purchasePrice: z.coerce.number().min(0).optional(),
     quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
@@ -81,7 +82,7 @@ export async function createOrder(data: OrderInput) {
             if (!product) {
                 throw new Error(`Product ${item.name} not found`);
             }
-            if (product.stockQuantity < item.quantity) {
+            if (product.type !== "Service" && product.stockQuantity < item.quantity) {
                 throw new Error(`Insufficient stock for ${item.name}. Available: ${product.stockQuantity}`);
             }
         }
@@ -125,7 +126,7 @@ export async function createOrder(data: OrderInput) {
         // Deduct Stock and log movement
         for (const item of processedItems) {
             const product = await Product.findOne({ _id: item.productId, userId });
-            if (product) {
+            if (product && product.type !== "Service") {
                 const previousStock = product.stockQuantity;
                 product.stockQuantity -= item.quantity;
                 await product.save();
