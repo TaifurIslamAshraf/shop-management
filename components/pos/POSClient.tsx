@@ -20,6 +20,7 @@ interface Product {
     name: string;
     sku: string;
     price: number;
+    purchasePrice?: number;
     stockQuantity: number;
     imageUrl?: string;
 }
@@ -230,6 +231,7 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                     name: c.product.name,
                     sku: c.product.sku,
                     price: c.product.price,
+                    purchasePrice: c.product.purchasePrice || 0,
                     quantity: c.quantity,
                 })),
                 discountAmount: Number(discount),
