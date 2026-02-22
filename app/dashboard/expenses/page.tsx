@@ -1,14 +1,18 @@
 import { getExpenses } from "@/actions/expense";
-import { DataTable } from "@/components/ui/data-table";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { columns } from "./columns";
+import ExpensesClient from "./ExpensesClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function ExpensesPage() {
-    const { data: expenses, success, error } = await getExpenses();
+export default async function ExpensesPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+    const resolvedParams = await searchParams;
+    const page = Number(resolvedParams.page) || 1;
+
+    const result = await getExpenses({ page });
+    const { data: expenses, success, error } = result;
+    const { totalCount, totalPages } = result as any;
 
     if (!success) {
         return (
@@ -40,10 +44,9 @@ export default async function ExpensesPage() {
                 </div>
             </div>
 
-            <DataTable
-                columns={columns}
-                data={expenses || []}
-                searchKey="title"
+            <ExpensesClient
+                expenses={expenses || []}
+                pagination={{ currentPage: page, totalPages: totalPages || 1, totalCount: totalCount || 0 }}
             />
         </div>
     );

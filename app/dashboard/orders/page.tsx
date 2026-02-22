@@ -2,8 +2,11 @@ import { getOrders } from "@/actions/order";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import OrdersClient from "./OrdersClient";
 
-export default async function OrdersPage() {
-    const { orders, success, error } = await getOrders();
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+    const resolvedParams = await searchParams;
+    const page = Number(resolvedParams.page) || 1;
+
+    const { orders, success, error, totalCount, totalPages } = await getOrders({ page });
 
     if (!success) {
         return (
@@ -30,7 +33,10 @@ export default async function OrdersPage() {
                     <CardTitle>Recent Orders</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <OrdersClient orders={orders || []} />
+                    <OrdersClient
+                        orders={orders || []}
+                        pagination={{ currentPage: page, totalPages: totalPages || 1, totalCount: totalCount || 0 }}
+                    />
                 </CardContent>
             </Card>
         </div>

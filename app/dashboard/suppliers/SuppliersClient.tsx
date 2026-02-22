@@ -15,15 +15,21 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { DataTable } from "./data-table";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { getColumns, Supplier } from "./columns";
 import { SupplierForm } from "@/components/suppliers/SupplierForm";
 import { deleteSupplier } from "@/actions/supplier";
 
 interface SuppliersClientProps {
     initialSuppliers: Supplier[];
+    pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalCount: number;
+    };
 }
 
-export default function SuppliersClient({ initialSuppliers }: SuppliersClientProps) {
+export default function SuppliersClient({ initialSuppliers, pagination }: SuppliersClientProps) {
     const router = useRouter();
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -94,6 +100,11 @@ export default function SuppliersClient({ initialSuppliers }: SuppliersClientPro
             </Dialog>
 
             <DataTable columns={columns} data={initialSuppliers} />
+            <PaginationControls
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalCount={pagination.totalCount}
+            />
         </>
     );
 }

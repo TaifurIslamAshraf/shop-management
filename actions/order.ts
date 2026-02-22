@@ -160,16 +160,21 @@ export async function createOrder(data: OrderInput) {
     }
 }
 
-export async function getOrders() {
+export async function getOrders({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
 
         await connectDB();
 
-        const orders = await Order.find({ userId }).sort({ createdAt: -1 }).lean();
+        const skip = (page - 1) * limit;
+        const [orders, totalCount] = await Promise.all([
+            Order.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Order.countDocuments({ userId }),
+        ]);
+        const totalPages = Math.ceil(totalCount / limit);
 
-        return { success: true, orders: JSON.parse(JSON.stringify(orders)) };
+        return { success: true, orders: JSON.parse(JSON.stringify(orders)), totalCount, page, totalPages };
     } catch (error: any) {
         return { success: false, error: error.message || "Failed to fetch orders" };
     }

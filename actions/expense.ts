@@ -10,7 +10,7 @@ interface ActionResult<T> {
     error?: string;
 }
 
-export async function getExpenses(): Promise<ActionResult<any>> {
+export async function getExpenses({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}): Promise<ActionResult<any>> {
     try {
         const { userId } = await auth();
         if (!userId) {
@@ -19,10 +19,16 @@ export async function getExpenses(): Promise<ActionResult<any>> {
 
         await dbConnect();
 
-        // Fetch all expenses for the user, sorted by descending date
-        const expenses = await Expense.find({ userId })
-            .sort({ expenseDate: -1, createdAt: -1 })
-            .lean();
+        const skip = (page - 1) * limit;
+        const [expenses, totalCount] = await Promise.all([
+            Expense.find({ userId })
+                .sort({ expenseDate: -1, createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Expense.countDocuments({ userId }),
+        ]);
+        const totalPages = Math.ceil(totalCount / limit);
 
         // Convert MongoDB _id to string for Next.js serialization
         const serializedExpenses = expenses.map((expense: any) => ({
@@ -30,7 +36,7 @@ export async function getExpenses(): Promise<ActionResult<any>> {
             _id: expense._id.toString(),
         }));
 
-        return { success: true, data: serializedExpenses };
+        return { success: true, data: serializedExpenses, totalCount, page, totalPages } as any;
     } catch (error) {
         console.error("Error fetching expenses:", error);
         return { success: false, error: "Failed to fetch expenses" };

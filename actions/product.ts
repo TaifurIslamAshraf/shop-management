@@ -67,17 +67,21 @@ export async function createProduct(data: ProductInput) {
     }
 }
 
-export async function getProducts() {
+export async function getProducts({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
 
         await connectDB();
-        console.log("getProducts for userId:", userId);
 
-        const products = await Product.find({ userId }).sort({ createdAt: -1 }).lean();
+        const skip = (page - 1) * limit;
+        const [products, totalCount] = await Promise.all([
+            Product.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Product.countDocuments({ userId }),
+        ]);
+        const totalPages = Math.ceil(totalCount / limit);
 
-        return { success: true, products: JSON.parse(JSON.stringify(products)) };
+        return { success: true, products: JSON.parse(JSON.stringify(products)), totalCount, page, totalPages };
     } catch (error: any) {
         return { success: false, error: error.message || "Failed to fetch products" };
     }

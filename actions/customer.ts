@@ -43,18 +43,21 @@ export async function createCustomer(data: CustomerInput) {
     }
 }
 
-export async function getCustomers() {
+export async function getCustomers({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
 
         await connectDB();
 
-        const customers = await Customer.find({ userId })
-            .sort({ createdAt: -1 })
-            .lean();
+        const skip = (page - 1) * limit;
+        const [customers, totalCount] = await Promise.all([
+            Customer.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Customer.countDocuments({ userId }),
+        ]);
+        const totalPages = Math.ceil(totalCount / limit);
 
-        return { success: true, customers: JSON.parse(JSON.stringify(customers)) };
+        return { success: true, customers: JSON.parse(JSON.stringify(customers)), totalCount, page, totalPages };
     } catch (error: any) {
         return { success: false, error: error.message || "Failed to fetch customers" };
     }

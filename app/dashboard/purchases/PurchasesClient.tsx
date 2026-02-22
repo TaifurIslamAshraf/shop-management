@@ -6,14 +6,20 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "./data-table";
 import { getColumns, Purchase } from "./columns";
 import { deletePurchase } from "@/actions/purchase";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 interface PurchasesClientProps {
     initialPurchases: Purchase[];
+    pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalCount: number;
+    };
 }
 
-export default function PurchasesClient({ initialPurchases }: PurchasesClientProps) {
+export default function PurchasesClient({ initialPurchases, pagination }: PurchasesClientProps) {
     const router = useRouter();
 
     const handleDelete = async (id: string) => {
@@ -47,6 +53,11 @@ export default function PurchasesClient({ initialPurchases }: PurchasesClientPro
             </div>
 
             <DataTable columns={columns} data={initialPurchases} />
+            <PaginationControls
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalCount={pagination.totalCount}
+            />
         </>
     );
 }

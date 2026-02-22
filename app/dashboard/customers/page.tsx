@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import CustomerForm from "@/components/customers/CustomerForm";
 import CustomersClient from "./CustomersClient";
 
-export default async function CustomersPage() {
-    const { customers, success, error } = await getCustomers();
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+    const resolvedParams = await searchParams;
+    const page = Number(resolvedParams.page) || 1;
+
+    const { customers, success, error, totalCount, totalPages } = await getCustomers({ page });
 
     if (!success) {
         return (
@@ -32,7 +35,10 @@ export default async function CustomersPage() {
                     <CardTitle>All Customers</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <CustomersClient customers={customers || []} />
+                    <CustomersClient
+                        customers={customers || []}
+                        pagination={{ currentPage: page, totalPages: totalPages || 1, totalCount: totalCount || 0 }}
+                    />
                 </CardContent>
             </Card>
         </div>

@@ -144,19 +144,26 @@ export async function createPurchase(data: PurchaseInput) {
     }
 }
 
-export async function getPurchases() {
+export async function getPurchases({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
 
         await connectDB();
 
-        const purchases = await Purchase.find({ userId })
-            .populate("supplierId", "name companyName")
-            .sort({ createdAt: -1 })
-            .lean();
+        const skip = (page - 1) * limit;
+        const [purchases, totalCount] = await Promise.all([
+            Purchase.find({ userId })
+                .populate("supplierId", "name companyName")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Purchase.countDocuments({ userId }),
+        ]);
+        const totalPages = Math.ceil(totalCount / limit);
 
-        return { success: true, purchases: JSON.parse(JSON.stringify(purchases)) };
+        return { success: true, purchases: JSON.parse(JSON.stringify(purchases)), totalCount, page, totalPages };
     } catch (error: any) {
         return { success: false, error: error.message || "Failed to fetch purchases" };
     }

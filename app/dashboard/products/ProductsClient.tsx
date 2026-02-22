@@ -15,6 +15,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { DataTable } from "@/components/ui/data-table";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { getColumns, Product } from "./columns";
 import { ProductForm } from "@/components/products/ProductForm";
 import { deleteProduct } from "@/actions/product";
@@ -24,9 +25,14 @@ import { StockAdjustModal } from "@/components/products/StockAdjustModal";
 interface ProductsClientProps {
     initialProducts: Product[];
     suppliers?: any[];
+    pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalCount: number;
+    };
 }
 
-export default function ProductsClient({ initialProducts, suppliers = [] }: ProductsClientProps) {
+export default function ProductsClient({ initialProducts, suppliers = [], pagination }: ProductsClientProps) {
     console.log("ProductsClient received initialProducts:", initialProducts?.length);
     const router = useRouter();
     const [isAddOpen, setIsAddOpen] = useState(false);
@@ -118,6 +124,11 @@ export default function ProductsClient({ initialProducts, suppliers = [] }: Prod
             />
 
             <DataTable columns={columns} data={initialProducts} />
+            <PaginationControls
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalCount={pagination.totalCount}
+            />
         </>
     );
 }
