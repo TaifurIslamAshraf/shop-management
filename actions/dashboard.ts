@@ -69,18 +69,22 @@ export async function getSmartAlerts() {
     }
 }
 
-export async function getDailySalesSummary() {
+export async function getDailySalesSummary(from?: Date | string, to?: Date | string) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
 
         await connectDB();
 
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-
-        const endOfDay = new Date();
+        const endOfDay = to ? new Date(to) : new Date();
         endOfDay.setHours(23, 59, 59, 999);
+
+        const startOfDay = from ? new Date(from) : new Date();
+        if (!from && !to) {
+            // Default 30 days if no dates provided
+            startOfDay.setDate(startOfDay.getDate() - 30);
+        }
+        startOfDay.setHours(0, 0, 0, 0);
 
         // Fetch Orders and Expenses for today concurrently
         const [todayOrders, todayExpenses] = await Promise.all([
@@ -183,17 +187,36 @@ export async function getDueMetrics() {
     }
 }
 
-export async function getWeeklyAnalytics() {
+export async function getWeeklyAnalytics(from?: Date | string, to?: Date | string) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
 
         await connectDB();
 
-        // Build last 90 days date range
+        // Build date range
+        let endDate = to ? new Date(to) : new Date();
+        let startDate = from ? new Date(from) : new Date();
+
+        if (!from && !to) {
+            startDate.setDate(endDate.getDate() - 29); // 30 days inclusive
+        }
+
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        // Calculate maximum 90 days if date range is longer to prevent excessive data
+        const diffDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const numDays = Math.min(diffDays + 1, 90);
+
+        // Always reconstruct the startDate from endDate and numDays if limited to 90
+        startDate = new Date(endDate);
+        startDate.setDate(endDate.getDate() - numDays + 1);
+        startDate.setHours(0, 0, 0, 0);
+
         const days: { date: string; start: Date; end: Date }[] = [];
-        for (let i = 89; i >= 0; i--) {
-            const d = new Date();
+        for (let i = numDays - 1; i >= 0; i--) {
+            const d = new Date(endDate);
             d.setDate(d.getDate() - i);
             const start = new Date(d);
             start.setHours(0, 0, 0, 0);
@@ -204,19 +227,19 @@ export async function getWeeklyAnalytics() {
             days.push({ date, start, end });
         }
 
-        const ninetyDaysAgo = days[0].start;
+        const dateRangeStart = days[0].start;
 
         // Fetch all orders and expenses in the 90-day window
         const [orders, expenses] = await Promise.all([
             Order.find({
                 userId,
-                createdAt: { $gte: ninetyDaysAgo },
+                createdAt: { $gte: dateRangeStart, $lte: endDate },
             })
                 .select("totalAmount items createdAt")
                 .lean(),
             Expense.find({
                 userId,
-                expenseDate: { $gte: ninetyDaysAgo },
+                expenseDate: { $gte: dateRangeStart, $lte: endDate },
             })
                 .select("amount expenseDate")
                 .lean(),

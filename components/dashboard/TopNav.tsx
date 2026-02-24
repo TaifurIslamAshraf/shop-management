@@ -29,7 +29,7 @@ export function TopNav() {
     }, []);
 
     return (
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 justify-between transition-all sm:h-14 sm:px-6 shadow-sm">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 justify-between transition-all sm:h-14 sm:px-6 shadow-sm mb-6">
             <div className="flex items-center gap-2 font-semibold">
                 <SidebarTrigger className="-ml-1" />
                 <Package className="h-5 w-5 sm:hidden" />

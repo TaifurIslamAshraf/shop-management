@@ -5,12 +5,17 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SmartAlertsClient } from "@/components/dashboard/SmartAlertsClient";
 import { ChartAreaInteractive } from "@/components/dashboard/chart-area-interactive";
+import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ from?: string, to?: string }> }) {
+    const resolvedParams = await searchParams;
+    const from = resolvedParams.from;
+    const to = resolvedParams.to;
+
     const [{ summary, success }, dueResult, analyticsResult] = await Promise.all([
-        getDailySalesSummary(),
+        getDailySalesSummary(from, to),
         getDueMetrics(),
-        getWeeklyAnalytics(),
+        getWeeklyAnalytics(from, to),
     ]);
 
     if (!success || !summary) {
@@ -28,20 +33,23 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-                <Button asChild>
-                    <Link href="/dashboard/products">Manage Products</Link>
-                </Button>
+                <div className="flex items-center gap-4">
+                    <DashboardDateFilter />
+                    <Button asChild>
+                        <Link href="/dashboard/products">Manage Products</Link>
+                    </Button>
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Today&apos;s Revenue</CardTitle>
+                        <CardTitle className="text-sm font-medium">Revenue</CardTitle>
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">${summary.totalRevenue.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Total revenue today</p>
+                        <p className="text-xs text-muted-foreground mt-1">Total revenue for period</p>
                     </CardContent>
                 </Card>
 
@@ -63,7 +71,7 @@ export default async function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">${summary.totalExpenses?.toFixed(2) || "0.00"}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Operational costs today</p>
+                        <p className="text-xs text-muted-foreground mt-1">Operational costs for period</p>
                     </CardContent>
                 </Card>
             </div>
