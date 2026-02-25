@@ -51,7 +51,7 @@ interface ChartDataPoint {
 }
 
 export function ChartAreaInteractive() {
-    const [timeRange, setTimeRange] = React.useState("90")
+    const [timeRange, setTimeRange] = React.useState("30")
     const [data, setData] = React.useState<ChartDataPoint[]>([])
     const [loading, setLoading] = React.useState(true)
 
@@ -81,7 +81,7 @@ export function ChartAreaInteractive() {
                         className="w-[160px] rounded-lg sm:ml-auto flex"
                         aria-label="Select a value"
                     >
-                        <SelectValue placeholder="Last 3 months" />
+                        <SelectValue placeholder="Last 30 days" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
                         <SelectItem value="90" className="rounded-lg">
