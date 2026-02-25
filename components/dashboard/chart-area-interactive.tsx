@@ -26,6 +26,8 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
+import { getChartAnalytics } from "@/actions/dashboard"
+
 const chartConfig = {
     revenue: {
         label: "Revenue",
@@ -48,30 +50,22 @@ interface ChartDataPoint {
     netProfit: number
 }
 
-interface ChartAreaInteractiveProps {
-    data: ChartDataPoint[]
-}
+export function ChartAreaInteractive() {
+    const [timeRange, setTimeRange] = React.useState("90")
+    const [data, setData] = React.useState<ChartDataPoint[]>([])
+    const [loading, setLoading] = React.useState(true)
 
-export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
-    const [timeRange, setTimeRange] = React.useState("90d")
-
-    const filteredData = React.useMemo(() => {
-        const now = new Date()
-        let daysToSubtract = 90
-        if (timeRange === "30d") {
-            daysToSubtract = 30
-        } else if (timeRange === "7d") {
-            daysToSubtract = 7
+    React.useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true)
+            const result = await getChartAnalytics(Number(timeRange))
+            if (result.success && result.data) {
+                setData(result.data as ChartDataPoint[])
+            }
+            setLoading(false)
         }
-        const startDate = new Date(now)
-        startDate.setDate(startDate.getDate() - daysToSubtract)
-        startDate.setHours(0, 0, 0, 0)
-
-        return data.filter((item) => {
-            const date = new Date(item.date)
-            return date >= startDate
-        })
-    }, [data, timeRange])
+        fetchData()
+    }, [timeRange])
 
     return (
         <Card className="pt-0">
@@ -84,19 +78,19 @@ export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
                 </div>
                 <Select value={timeRange} onValueChange={setTimeRange}>
                     <SelectTrigger
-                        className="hidden w-[160px] rounded-lg sm:ml-auto sm:flex"
+                        className="w-[160px] rounded-lg sm:ml-auto flex"
                         aria-label="Select a value"
                     >
                         <SelectValue placeholder="Last 3 months" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                        <SelectItem value="90d" className="rounded-lg">
+                        <SelectItem value="90" className="rounded-lg">
                             Last 3 months
                         </SelectItem>
-                        <SelectItem value="30d" className="rounded-lg">
+                        <SelectItem value="30" className="rounded-lg">
                             Last 30 days
                         </SelectItem>
-                        <SelectItem value="7d" className="rounded-lg">
+                        <SelectItem value="7" className="rounded-lg">
                             Last 7 days
                         </SelectItem>
                     </SelectContent>
@@ -107,7 +101,7 @@ export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
                     config={chartConfig}
                     className="aspect-auto h-[250px] w-full"
                 >
-                    <AreaChart data={filteredData}>
+                    <AreaChart data={data}>
                         <defs>
                             <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
                                 <stop
@@ -155,6 +149,12 @@ export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
                             minTickGap={32}
                             tickFormatter={(value) => {
                                 const date = new Date(value)
+                                if (data?.length <= 24) {
+                                    return date.toLocaleTimeString("en-US", {
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                    })
+                                }
                                 return date.toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
@@ -166,7 +166,16 @@ export function ChartAreaInteractive({ data }: ChartAreaInteractiveProps) {
                             content={
                                 <ChartTooltipContent
                                     labelFormatter={(value) => {
-                                        return new Date(value).toLocaleDateString("en-US", {
+                                        const date = new Date(value)
+                                        if (data?.length <= 24) {
+                                            return date.toLocaleString("en-US", {
+                                                month: "short",
+                                                day: "numeric",
+                                                hour: "numeric",
+                                                minute: "2-digit"
+                                            })
+                                        }
+                                        return date.toLocaleDateString("en-US", {
                                             month: "short",
                                             day: "numeric",
                                             year: "numeric",

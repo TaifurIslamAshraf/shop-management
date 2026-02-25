@@ -1,4 +1,4 @@
-import { getDailySalesSummary, getDueMetrics, getWeeklyAnalytics } from "@/actions/dashboard";
+import { getDailySalesSummary, getDueMetrics } from "@/actions/dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, DollarSign, Activity, AlertTriangle } from "lucide-react";
 import Link from "next/link";
@@ -12,10 +12,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const from = resolvedParams.from;
     const to = resolvedParams.to;
 
-    const [{ summary, success }, dueResult, analyticsResult] = await Promise.all([
+    const [{ summary, success }, dueResult] = await Promise.all([
         getDailySalesSummary(from, to),
         getDueMetrics(),
-        getWeeklyAnalytics(from, to),
     ]);
 
     if (!success || !summary) {
@@ -27,7 +26,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     }
 
     const dueMetrics = dueResult.metrics;
-    const analyticsData = analyticsResult.data || [];
 
     return (
         <div className="flex flex-col gap-6">
@@ -137,7 +135,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
             <SmartAlertsClient />
 
-            <ChartAreaInteractive data={analyticsData} />
+            <ChartAreaInteractive />
         </div>
     );
 }

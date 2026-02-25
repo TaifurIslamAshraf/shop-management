@@ -80,10 +80,6 @@ export async function getDailySalesSummary(from?: Date | string, to?: Date | str
         endOfDay.setHours(23, 59, 59, 999);
 
         const startOfDay = from ? new Date(from) : new Date();
-        if (!from && !to) {
-            // Default 30 days if no dates provided
-            startOfDay.setDate(startOfDay.getDate() - 30);
-        }
         startOfDay.setHours(0, 0, 0, 0);
 
         // Fetch Orders and Expenses for today concurrently
@@ -187,49 +183,34 @@ export async function getDueMetrics() {
     }
 }
 
-export async function getWeeklyAnalytics(from?: Date | string, to?: Date | string) {
+export async function getChartAnalytics(days: number = 90) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
 
         await connectDB();
 
-        // Build date range
-        let endDate = to ? new Date(to) : new Date();
-        let startDate = from ? new Date(from) : new Date();
-
-        if (!from && !to) {
-            startDate.setDate(endDate.getDate() - 29); // 30 days inclusive
-        }
-
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-
-        // Calculate maximum 90 days if date range is longer to prevent excessive data
-        const diffDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        const numDays = Math.min(diffDays + 1, 90);
-
-        // Always reconstruct the startDate from endDate and numDays if limited to 90
-        startDate = new Date(endDate);
-        startDate.setDate(endDate.getDate() - numDays + 1);
+        let endDate = new Date();
+        let startDate = new Date();
+        startDate.setDate(endDate.getDate() - days + 1);
         startDate.setHours(0, 0, 0, 0);
 
-        const days: { date: string; start: Date; end: Date }[] = [];
-        for (let i = numDays - 1; i >= 0; i--) {
+        const buckets: { date: string; start: Date; end: Date }[] = [];
+
+        for (let i = days - 1; i >= 0; i--) {
             const d = new Date(endDate);
             d.setDate(d.getDate() - i);
             const start = new Date(d);
             start.setHours(0, 0, 0, 0);
             const end = new Date(d);
             end.setHours(23, 59, 59, 999);
-            // ISO date string YYYY-MM-DD for chart parsing
-            const date = start.toISOString().split("T")[0];
-            days.push({ date, start, end });
+            const date = start.toISOString();
+            buckets.push({ date, start, end });
         }
 
-        const dateRangeStart = days[0].start;
+        const dateRangeStart = buckets[0].start;
 
-        // Fetch all orders and expenses in the 90-day window
+        // Fetch all orders and expenses in the window
         const [orders, expenses] = await Promise.all([
             Order.find({
                 userId,
@@ -245,23 +226,23 @@ export async function getWeeklyAnalytics(from?: Date | string, to?: Date | strin
                 .lean(),
         ]);
 
-        // Bucket into days
-        const data = days.map(({ date, start, end }) => {
-            const dayOrders = orders.filter(
+        // Map into buckets
+        const data = buckets.map(({ date, start, end }) => {
+            const bucketOrders = orders.filter(
                 (o) => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end
             );
-            const dayExpenses = expenses.filter(
+            const bucketExpenses = expenses.filter(
                 (e) => new Date(e.expenseDate) >= start && new Date(e.expenseDate) <= end
             );
 
-            const revenue = dayOrders.reduce((s, o) => s + o.totalAmount, 0);
+            const revenue = bucketOrders.reduce((s, o) => s + o.totalAmount, 0);
             let cogs = 0;
-            dayOrders.forEach((o) => {
+            bucketOrders.forEach((o) => {
                 (o.items || []).forEach((item: any) => {
                     cogs += (item.purchasePrice || 0) * item.quantity;
                 });
             });
-            const totalExpenses = dayExpenses.reduce((s, e) => s + e.amount, 0);
+            const totalExpenses = bucketExpenses.reduce((s, e) => s + e.amount, 0);
             const netProfit = revenue - cogs - totalExpenses;
 
             return {
@@ -274,6 +255,6 @@ export async function getWeeklyAnalytics(from?: Date | string, to?: Date | strin
 
         return { success: true, data };
     } catch (error: any) {
-        return { success: false, error: error.message || "Failed to fetch weekly analytics" };
+        return { success: false, error: error.message || "Failed to fetch analytics" };
     }
 }
