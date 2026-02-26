@@ -67,7 +67,7 @@ export async function createProduct(data: ProductInput) {
     }
 }
 
-export async function getProducts({ page = 1, limit = 20 }: { page?: number; limit?: number } = {}) {
+export async function getProducts({ page = 1, limit = 20, search = "" }: { page?: number; limit?: number; search?: string } = {}) {
     try {
         const { userId } = await auth();
         if (!userId) throw new Error("Unauthorized");
@@ -75,9 +75,18 @@ export async function getProducts({ page = 1, limit = 20 }: { page?: number; lim
         await connectDB();
 
         const skip = (page - 1) * limit;
+
+        const query: any = { userId };
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { sku: { $regex: search, $options: "i" } }
+            ];
+        }
+
         const [products, totalCount] = await Promise.all([
-            Product.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-            Product.countDocuments({ userId }),
+            Product.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Product.countDocuments(query),
         ]);
         const totalPages = Math.ceil(totalCount / limit);
 

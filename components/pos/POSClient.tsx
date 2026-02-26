@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Minus, Trash2, Search, ShoppingCart, UserPlus, X, Wrench } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ShoppingCart, UserPlus, X, Wrench, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { createOrder } from "@/actions/order";
 import { searchCustomers, createCustomer } from "@/actions/customer";
+import { getProducts } from "@/actions/product";
 
 interface Product {
     _id: string;
@@ -41,11 +42,56 @@ interface CustomerResult {
     unpaidInvoiceCount: number;
 }
 
-export default function POSClient({ initialProducts }: { initialProducts: Product[] }) {
+export default function POSClient({ initialProducts, initialTotalPages = 1 }: { initialProducts: Product[]; initialTotalPages?: number }) {
     const router = useRouter();
-    const [products] = useState<Product[]>(initialProducts);
+    const [products, setProducts] = useState<Product[]>(initialProducts);
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(initialTotalPages);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
     const [cart, setCart] = useState<CartItem[]>([]);
+
+    const isFirstRender = useRef(true);
+
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (searchQuery !== debouncedSearchQuery) {
+                setDebouncedSearchQuery(searchQuery);
+                setPage(1); // Reset to page 1 on new search
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery, debouncedSearchQuery]);
+
+    // Fetch products
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+
+        const fetchProducts = async () => {
+            setIsLoadingProducts(true);
+            try {
+                const result = await getProducts({ search: debouncedSearchQuery, page, limit: 12 });
+                if (result.success) {
+                    // Update stock matching cart before replacing list to avoid glitch
+                    setProducts(result.products || []);
+                    setTotalPages(result.totalPages || 1);
+                } else {
+                    toast.error(result.error || "Failed to fetch products");
+                }
+            } catch (error) {
+                toast.error("An error occurred while fetching products");
+            } finally {
+                setIsLoadingProducts(false);
+            }
+        };
+
+        fetchProducts();
+    }, [debouncedSearchQuery, page]);
 
     // POS State
     const [discount, setDiscount] = useState<number>(0);
@@ -70,12 +116,6 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
     const [customItemPurchasePrice, setCustomItemPurchasePrice] = useState<number>(0);
 
     const [isProcessing, setIsProcessing] = useState(false);
-
-    const filteredProducts = products.filter(
-        (p) =>
-            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-    );
 
     const checkStockAvailability = (productId: string, requestedQty: number) => {
         const product = products.find(p => p._id === productId);
@@ -423,7 +463,14 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredProducts.map((product) => (
+                            {isLoadingProducts ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                                        Loading products...
+                                    </TableCell>
+                                </TableRow>
+                            ) : products.map((product) => (
                                 <TableRow
                                     key={product._id}
                                     className={`cursor-pointer transition-colors hover:bg-muted/50 ${product.stockQuantity <= 0 ? 'opacity-50' : ''}`}
@@ -446,7 +493,7 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {filteredProducts.length === 0 && (
+                            {!isLoadingProducts && products.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                         No products found matching &quot;{searchQuery}&quot;
@@ -456,10 +503,41 @@ export default function POSClient({ initialProducts }: { initialProducts: Produc
                         </TableBody>
                     </Table>
                 </div>
+
+                {/* Pagination Controls */}
+                {!isLoadingProducts && totalPages > 1 && (
+                    <div className="flex items-center justify-between shrink-0 border bg-card rounded-md p-2 shadow-sm">
+                        <p className="text-xs text-muted-foreground font-medium pl-1">
+                            Page {page} of {totalPages}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page <= 1}
+                            >
+                                <ChevronLeft className="h-3 w-3 mr-0.5" />
+                                Prev
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page >= totalPages}
+                            >
+                                Next
+                                <ChevronRight className="h-3 w-3 ml-0.5" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Right Side: Cart / POS Checkout */}
-            <div className="w-full lg:w-[400px] flex flex-col gap-4 border rounded-lg bg-card p-4 overflow-hidden h-full">
+            <div className="w-full lg:w-[400px] flex flex-col gap-4 border rounded-lg bg-card p-4 overflow-hidden h-full shrink-0">
                 <div className="flex-1 overflow-auto">
                     <h2 className="text-lg font-semibold border-b pb-2 mb-4">Current Order</h2>
                     {cart.length === 0 ? (
