@@ -354,15 +354,15 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)]">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[calc(100vh-8rem)]">
             {/* Left Side: Products Grid */}
-            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden min-h-75 lg:min-h-0">
                 <div className="flex items-center gap-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             type="search"
-                            placeholder="Search products by name or SKU..."
+                            placeholder="Search products..."
                             className="pl-8"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -374,7 +374,7 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
                         onClick={() => setShowCustomItemForm(!showCustomItemForm)}
                     >
                         <Wrench className="h-4 w-4" />
-                        Custom Item
+                        <span className="hidden sm:inline">Custom Item</span>
                     </Button>
                 </div>
 
@@ -387,7 +387,7 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
                                 <h3 className="text-sm font-semibold">Add Custom Item</h3>
                                 <span className="text-xs text-muted-foreground">(Service / Repair)</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                     <label className="text-xs text-muted-foreground">Item Name *</label>
                                     <Input
@@ -455,9 +455,9 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="w-[80px]">Image</TableHead>
+                                <TableHead className="w-[80px] hidden sm:table-cell">Image</TableHead>
                                 <TableHead>Product</TableHead>
-                                <TableHead>SKU</TableHead>
+                                <TableHead className="hidden md:table-cell">SKU</TableHead>
                                 <TableHead className="text-right">Price</TableHead>
                                 <TableHead className="text-right">Stock</TableHead>
                             </TableRow>
@@ -476,7 +476,7 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
                                     className={`cursor-pointer transition-colors hover:bg-muted/50 ${product.stockQuantity <= 0 ? 'opacity-50' : ''}`}
                                     onClick={() => product.stockQuantity > 0 && addToCart(product)}
                                 >
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center overflow-hidden shrink-0">
                                             {product.imageUrl ? (
                                                 <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full" />
@@ -485,8 +485,8 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
                                             )}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="font-medium whitespace-nowrap">{product.name}</TableCell>
-                                    <TableCell className="text-muted-foreground whitespace-nowrap">{product.sku}</TableCell>
+                                    <TableCell className="font-medium">{product.name}</TableCell>
+                                    <TableCell className="text-muted-foreground whitespace-nowrap hidden md:table-cell">{product.sku}</TableCell>
                                     <TableCell className="text-right font-bold whitespace-nowrap">${product.price.toFixed(2)}</TableCell>
                                     <TableCell className={`text-right whitespace-nowrap ${product.stockQuantity <= 0 ? 'text-red-500 font-bold' : ''}`}>
                                         {product.stockQuantity}
@@ -537,7 +537,7 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
             </div>
 
             {/* Right Side: Cart / POS Checkout */}
-            <div className="w-full lg:w-[400px] flex flex-col gap-4 border rounded-lg bg-card p-4 overflow-hidden h-full shrink-0">
+            <div className="w-full lg:w-[400px] flex flex-col gap-4 border rounded-lg bg-card p-3 sm:p-4 overflow-hidden lg:h-full shrink-0">
                 <div className="flex-1 overflow-auto">
                     <h2 className="text-lg font-semibold border-b pb-2 mb-4">Current Order</h2>
                     {cart.length === 0 ? (
@@ -565,17 +565,17 @@ export default function POSClient({ initialProducts, initialTotalPages = 1 }: { 
                                     {item.description && (
                                         <p className="text-xs text-muted-foreground italic">{item.description}</p>
                                     )}
-                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                        <span>${item.product.price.toFixed(2)} / ea</span>
-                                        <div className="flex items-center gap-2">
-                                            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product._id, -1)}>
+                                    <div className="flex justify-between items-center text-sm text-muted-foreground gap-2">
+                                        <span className="shrink-0">${item.product.price.toFixed(2)} / ea</span>
+                                        <div className="flex items-center gap-1.5 sm:gap-2">
+                                            <Button variant="outline" size="icon" className="h-7 w-7 sm:h-6 sm:w-6" onClick={() => updateQuantity(item.product._id, -1)}>
                                                 <Minus className="h-3 w-3" />
                                             </Button>
-                                            <span className="w-8 text-center">{item.quantity}</span>
-                                            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product._id, 1)}>
+                                            <span className="w-6 sm:w-8 text-center">{item.quantity}</span>
+                                            <Button variant="outline" size="icon" className="h-7 w-7 sm:h-6 sm:w-6" onClick={() => updateQuantity(item.product._id, 1)}>
                                                 <Plus className="h-3 w-3" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 text-destructive hover:text-destructive" onClick={() => removeFromCart(item.product._id)}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 ml-1 sm:ml-2 text-destructive hover:text-destructive" onClick={() => removeFromCart(item.product._id)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
